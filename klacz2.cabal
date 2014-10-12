@@ -7,8 +7,13 @@ Maintainer:          ada@michalik.es
 Build-Type:          Simple
 Cabal-Version:       >=1.2
 
-Executable Main
-  Main-is:           Main.hs
+Executable IRCFrontend
+  Main-is:           IRCFrontend.hs
   Build-Depends:     base, containers, bytestring,
-                     network, irc, stm
+                     network, irc, stm, transformers,
+                     zeromq4-haskell
+
+Executable SubscriberTest
+  Main-is:           SubscriberTest.hs
+  Build-Depends:     zeromq4-haskell, transformers
 

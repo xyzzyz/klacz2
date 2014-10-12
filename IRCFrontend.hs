@@ -3,6 +3,10 @@ module Main where
 
 import Control.Exception (finally, catch, Exception(..))
 import Control.Exception.Base
+
+import Control.Monad
+import Control.Monad.IO.Class
+
 import Control.Concurrent
 import Control.Concurrent.STM
 
@@ -12,6 +16,7 @@ import qualified Data.Map as M
 
 import System.IO
 import System.IO.Unsafe
+import qualified System.ZMQ4.Monadic as ZMQ
 
 import Network.Socket
 import Network (connectTo, withSocketsDo, PortID(..))
@@ -50,7 +55,7 @@ loginToIrcNetwork sock = do
 
 handlePingMessage pingMsg = do
   let pingArgument = head . msg_params $ pingMsg
-  BS.putStrLn $ "PING " `BS.append` pingArgument
+  hPutBSCrLf stdout $ "PING " `BS.append` pingArgument
   atomically $ writeTChan ircWriterChan (pong pingArgument)
 
 handleIrcMessage msg = do
@@ -75,15 +80,21 @@ ircReaderLoop sock = do
     then putStrLn "Socket: Got empty line, wut"
     else handleSocketLine line >> ircReaderLoop sock
 
-ircWriterLoop sock = do
+ircWriterLoop sock = forever $ do
   msg <- atomically $ readTChan ircWriterChan
   BS.hPutStr sock (encode msg)
   ircWriterLoop sock
 
-zmqWriterLoop = do
-  msg <- atomically $ readTChan zmqWriterChan
-  putStrLn $ show msg
-  zmqWriterLoop
+zmqWriter = ZMQ.runZMQ $ do
+  publisher <- ZMQ.socket ZMQ.Pub
+  ZMQ.bind publisher "tcp://*:5556"
+  ZMQ.bind publisher "ipc://ircevents.ipc"
+  zmqWriterLoop publisher
+
+zmqWriterLoop publisher = forever $ do
+  msg <- liftIO . atomically . readTChan $ zmqWriterChan
+  liftIO . putStrLn . show $ msg
+  ZMQ.send publisher [] (encode msg)
 
 zmqReaderLoop = do
   threadDelay $ 5*1000*1000
@@ -91,7 +102,7 @@ zmqReaderLoop = do
 
 start sock = do
   forkChild "irc reader" $ ircReader sock
-  forkChild "zmq writer" $ zmqWriterLoop
+  forkChild "zmq writer" $ zmqWriter
   forkChild "zmq reader" $ zmqReaderLoop
   forkChild "irc writer" $ ircWriterLoop sock
   return ()
