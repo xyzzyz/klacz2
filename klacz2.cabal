@@ -1,0 +1,14 @@
+Name:                klacz2
+Version:             0.0
+Description:         next generation of klacz IRC bot
+License:             GPL-3
+Author:              adam@michalik.es
+Maintainer:          ada@michalik.es
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+
+Executable Main
+  Main-is:           Main.hs
+  Build-Depends:     base, containers, bytestring,
+                     network, irc, stm
+
